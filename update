@@ -11,9 +11,9 @@ import pointhq
 import requests
 import sys
 
-address_source = 'http://icanhazip.com'
+ADDRESS_SOURCE = 'http://icanhazip.com'
 
-point_nameservers = ('109.233.112.63',
+POINT_NAMESERVERS = ('109.233.112.63',
                      '173.255.231.87',
                      '173.255.215.107',
                      '193.33.179.204',
@@ -21,59 +21,72 @@ point_nameservers = ('109.233.112.63',
 
 def exit_with_message(message, status=1):
     """Simple error handler function to kill the script with a suitable error
-    message and exit status."""
+    message and exit status.
+
+    """
     print("ERROR: %s" % message, file=sys.stderr)
     sys.exit(status)
     return
 
 
-def get_point_zone_id(point, zone):
+def get_point_zone_id(point, zone_name):
+    """Get the PointHQ id for a zone
+
+    Arguments:
+    point      -- point API object as returned by pointhq.Point()
+    zone_name  -- zone name (e.g. example.com)
+
+    """
     zones = point.zones.retrieve()
-    for z in zones:
-        if z['zone']['name'] == zone:
-            return z['zone']['id']
+    for zone in zones:
+        if zone['zone']['name'] == zone_name:
+            return zone['zone']['id']
 
     # Couldn't find zone, so exit
     exit_with_message('Unable to find zone %s via Point API. No such zone?'
-            % pointhq_zone)
+            % zone_name)
 
 
-def get_point_record_id(point, zone_id, record):
+def get_point_record_id(point, zone_id, record_name):
+    """Get the PointHQ id for a zone record
+
+    Arguments:
+    point        -- point API object as returned by pointhq.Point()
+    zone_id      -- id of the zone containting the zone record
+    record_name  -- zone record name (e.g. www.example.com.)
+
+    """
     records = point.zones(zone_id).records.retrieve()
-    for r in records:
-        name_matches = r['zone_record']['name'] == record
-        is_a_record = r['zone_record']['record_type'] == 'A'
+    for rec in records:
+        name_matches = rec['zone_record']['name'] == record_name
+        is_a_record = rec['zone_record']['record_type'] == 'A'
         if name_matches and is_a_record:
-            return r['zone_record']['id']
+            return rec['zone_record']['id']
 
     # Couldn't find zone, so exit
-    exit_with_message('Unable to find zone %s via Point API. No such zone?'
-            % pointhq_zone)
-
-
-def update_point_record(point, zone_id, record_id, ip):
-    point.zones(zone_id).records(record_id).update(data=ip)
+    exit_with_message('Unable to find zone record %s via Point API. '
+                      'No such record?' % record_name)
 
 
 def fully_qualify_domain(domain):
+    """\"Fully qualify\" a domain by appending a dot '.'"""
     if not domain.endswith('.'):
         domain = '{domain}.'.format(domain=domain)
     return domain
 
 
-def get_public_ip(source=address_source):
-    r = requests.get(source)
+def get_public_ip(source=ADDRESS_SOURCE):
+    req = requests.get(source)
 
-    if r.status_code == 200:
-        public_ip = r.text.rstrip()
+    if req.status_code == 200:
+        public_ip = req.text.rstrip()
         return public_ip
     else:
         exit_with_message(
                 "Error obtaining public IP address from %s" % source)
 
 
-if __name__ == '__main__':
-
+def main():
     pointhq_api_key = os.environ.get('POINTHQ_API_KEY')
     pointhq_username = os.environ.get('POINTHQ_USERNAME')
     pointhq_zone = os.environ.get('POINTHQ_ZONE')
@@ -97,7 +110,7 @@ if __name__ == '__main__':
 
     # Resolve dynamic_domain if it already exists.
     resolver = dns.resolver.Resolver()
-    resolver.nameservers = point_nameservers
+    resolver.nameservers = POINT_NAMESERVERS
 
     try:
         answers = resolver.query(dynamic_domain, 'A')
@@ -108,8 +121,7 @@ if __name__ == '__main__':
                 # IP appears to have changed. Update it.
                 point_record_id = get_point_record_id(point, point_zone_id,
                                                       dynamic_domain)
-                update_point_record(point, point_zone_id,
-                                    point_record_id, public_ip)
+                point.zones(point_zone_id).records(point_record_id).update(data=public_ip)
                 print("%s updated with IP address %s."
                         % (dynamic_domain, public_ip))
 
@@ -119,6 +131,9 @@ if __name__ == '__main__':
 
     except dns.resolver.NXDOMAIN:
         # Zone exists, but no record found. Create a new record.
-        new_rec = point.zones(point_zone_id).records.create(
+        point.zones(point_zone_id).records.create(
                 name=dynamic_domain, data=public_ip, record_type='A')
-        print(new_rec)
+
+
+if __name__ == '__main__':
+    main()
