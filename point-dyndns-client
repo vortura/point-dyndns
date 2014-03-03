@@ -3,9 +3,6 @@
 It determines the external address of a host and then uses the Point API to
 update a given DNS record with the identified IP address."""
 
-from __future__ import print_function
-
-import dns.resolver
 import os
 import pointhq
 import requests
@@ -13,24 +10,25 @@ import sys
 
 ADDRESS_SOURCE = 'http://icanhazip.com'
 
-POINT_NAMESERVERS = ('109.233.112.63',
-                     '173.255.231.87',
-                     '173.255.215.107',
-                     '193.33.179.204',
-                     '46.23.76.200',)
 
-def exit_with_message(message, status=1):
+def die(message, status=1):
     """Simple error handler function to kill the script with a suitable error
     message and exit status.
 
     """
-    print("ERROR: %s" % message, file=sys.stderr)
+    sys.stderr.write("ERROR: %s\n" % message)
     sys.exit(status)
-    return
+
+
+def warn(message):
+    """Report non-fatal errors.
+
+    """
+    sys.stderr.write("ERROR: %s\n" % message)
 
 
 def get_point_zone_id(point, zone_name):
-    """Get the PointHQ id for a zone
+    """Return the PointHQ id for a zone
 
     Arguments:
     point      -- point API object as returned by pointhq.Point()
@@ -43,29 +41,31 @@ def get_point_zone_id(point, zone_name):
             return zone['zone']['id']
 
     # Couldn't find zone, so exit
-    exit_with_message('Unable to find zone %s via Point API. No such zone?'
-            % zone_name)
+    die('Unable to find zone %s via Point API. No such zone?' % zone_name)
 
 
-def get_point_record_id(point, zone_id, record_name):
-    """Get the PointHQ id for a zone record
+def get_point_records(point, zone_id, record_name):
+    """Return a list of PointHQ zone record objects for any A records matching
+    the name 'record_name' in a given zone.
+
+    An empty list is returned if no record matches the name.
 
     Arguments:
     point        -- point API object as returned by pointhq.Point()
-    zone_id      -- id of the zone containting the zone record
+    zone_id      -- id of the zone containing the zone record
     record_name  -- zone record name (e.g. www.example.com.)
 
     """
     records = point.zones(zone_id).records.retrieve()
+    matches = []
+
     for rec in records:
         name_matches = rec['zone_record']['name'] == record_name
         is_a_record = rec['zone_record']['record_type'] == 'A'
         if name_matches and is_a_record:
-            return rec['zone_record']['id']
+            matches.append(rec)
 
-    # Couldn't find zone, so exit
-    exit_with_message('Unable to find zone record %s via Point API. '
-                      'No such record?' % record_name)
+    return matches
 
 
 def fully_qualify_domain(domain):
@@ -82,8 +82,7 @@ def get_public_ip(source=ADDRESS_SOURCE):
         public_ip = req.text.rstrip()
         return public_ip
     else:
-        exit_with_message(
-                "Error obtaining public IP address from %s" % source)
+        die("Error obtaining public IP address from %s" % source)
 
 
 def main():
@@ -92,47 +91,43 @@ def main():
     pointhq_zone = os.environ.get('POINTHQ_ZONE')
     pointhq_dynhost = os.environ.get('POINTHQ_DYNDOMAIN')
 
-    dynamic_domain = fully_qualify_domain(
-            "%s.%s" % (pointhq_dynhost, pointhq_zone))
-
-    # Create point API object
-    point = pointhq.Point(
-                username=pointhq_username,
-                apitoken=pointhq_api_key,
-                #request_func=pointhq.helpers.request_https
-            )
-
-    # Check zone exists
-    point_zone_id = get_point_zone_id(point, pointhq_zone)
+    dynamic_domain = fully_qualify_domain("%s.%s" % (pointhq_dynhost,
+                                                     pointhq_zone))
 
     # Lookup public ip.
     public_ip = get_public_ip()
 
-    # Resolve dynamic_domain if it already exists.
-    resolver = dns.resolver.Resolver()
-    resolver.nameservers = POINT_NAMESERVERS
+    # Create point API object
+    point = pointhq.Point(username=pointhq_username, apitoken=pointhq_api_key)
 
-    try:
-        answers = resolver.query(dynamic_domain, 'A')
-        if len(answers) == 1:
-            if answers[0].address == public_ip:
-                print("No change in public address.")
-            else:
-                # IP appears to have changed. Update it.
-                point_record_id = get_point_record_id(point, point_zone_id,
-                                                      dynamic_domain)
-                point.zones(point_zone_id).records(point_record_id).update(data=public_ip)
-                print("%s updated with IP address %s."
-                        % (dynamic_domain, public_ip))
+    # Check zone exists
+    zone_id = get_point_zone_id(point, pointhq_zone)
 
+    # Check for zone record(s)
+    point_records = get_point_records(point, zone_id, dynamic_domain)
+
+    if len(point_records) == 0:
+
+        # Create the zone record if it doesn't already exist
+        print "Creating new record"
+        point.zones(zone_id).records.create(name=dynamic_domain, data=public_ip,
+                                            record_type='A')
+
+    elif len(point_records) == 1:
+
+        # Update the zone record if it already exists and the IP has changed.
+        if public_ip == point_records[0]['zone_record']['data']:
+            print "No change"
         else:
-            exit_with_message(
-                    "More than one A record found for %s." % dynamic_domain)
+            record_id = point_records[0]['zone_record']['id']
+            point.zones(zone_id).records(record_id).update(data=public_ip)
+            print "Updating record"
 
-    except dns.resolver.NXDOMAIN:
-        # Zone exists, but no record found. Create a new record.
-        point.zones(point_zone_id).records.create(
-                name=dynamic_domain, data=public_ip, record_type='A')
+    else:
+
+        # Found more than one zone record. Not sure what to do in this
+        # situation, so die to be on the safe side.
+        die("Found more than one A record for %s" % dynamic_domain)
 
 
 if __name__ == '__main__':
