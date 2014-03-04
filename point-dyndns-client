@@ -76,6 +76,9 @@ def fully_qualify_domain(domain):
 
 
 def get_public_ip(source=ADDRESS_SOURCE):
+    """Return external IP address.
+
+    """
     req = requests.get(source)
 
     if req.status_code == 200:
