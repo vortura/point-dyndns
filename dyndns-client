@@ -88,23 +88,30 @@ def get_public_ip(source=ADDRESS_SOURCE):
         die("Error obtaining public IP address from %s" % source)
 
 
-def main():
-    pointhq_api_key = os.environ.get('POINTHQ_API_KEY')
-    pointhq_username = os.environ.get('POINTHQ_USERNAME')
-    pointhq_zone = os.environ.get('POINTHQ_ZONE')
-    pointhq_dynhost = os.environ.get('POINTHQ_DYNDOMAIN')
+def update_dyndns(username, api_key, zone, record):
+    """Update a Point DNS record with the public IP address of the machine
+    running this script.
 
-    dynamic_domain = fully_qualify_domain("%s.%s" % (pointhq_dynhost,
-                                                     pointhq_zone))
+    If the record does not already exist, it will be created.
+
+    Arguments:
+    username  -- Username for the Point DNS API
+    api_key   -- Point DNS API key
+    zone      -- Point DNS zone containing the record to be updated
+    record    -- DNS record to be updated
+
+    """
+
+    dynamic_domain = fully_qualify_domain("%s" % record)
 
     # Lookup public ip.
     public_ip = get_public_ip()
 
     # Create point API object
-    point = pointhq.Point(username=pointhq_username, apitoken=pointhq_api_key)
+    point = pointhq.Point(username=username, apitoken=api_key)
 
     # Check zone exists
-    zone_id = get_point_zone_id(point, pointhq_zone)
+    zone_id = get_point_zone_id(point, zone)
 
     # Check for zone record(s)
     point_records = get_point_records(point, zone_id, dynamic_domain)
@@ -131,6 +138,21 @@ def main():
         # Found more than one zone record. Not sure what to do in this
         # situation, so die to be on the safe side.
         die("Found more than one A record for %s" % dynamic_domain)
+
+
+def main():
+    """Main function.
+
+    Gather options and configuration parameters and call update function.
+
+    """
+
+    api_key = os.environ.get('POINT_API_KEY')
+    username = os.environ.get('POINT_USERNAME')
+    zone = os.environ.get('POINT_ZONE')
+    record = os.environ.get('POINT_RECORD')
+
+    update_dyndns(username, api_key, zone, record)
 
 
 if __name__ == '__main__':
