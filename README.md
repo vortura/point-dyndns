@@ -12,5 +12,5 @@ using my fork of the module rather than default version from PyPI. My fork fixes
 a couple bugs and enables HTTPS by default. It can be installed as follows:
 
 
-pip install git+git@github.com:vortura/pointhq.git@master#egg=pointhq
+`pip install git+git@github.com:vortura/pointhq.git@master#egg=pointhq`
 
