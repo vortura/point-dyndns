@@ -140,6 +140,15 @@ def update_dyndns(username, api_key, zone, record):
         die("Found more than one A record for %s" % dynamic_domain)
 
 
+def gather_config():
+    return {
+        "api_key" : os.environ.get('POINT_API_KEY'),
+        "username" : os.environ.get('POINT_USERNAME'),
+        "zone" : os.environ.get('POINT_ZONE'),
+        "record" : os.environ.get('POINT_RECORD'),
+        }
+
+
 def main():
     """Main function.
 
@@ -147,12 +156,10 @@ def main():
 
     """
 
-    api_key = os.environ.get('POINT_API_KEY')
-    username = os.environ.get('POINT_USERNAME')
-    zone = os.environ.get('POINT_ZONE')
-    record = os.environ.get('POINT_RECORD')
+    config = gather_config()
 
-    update_dyndns(username, api_key, zone, record)
+    update_dyndns(config['username'], config['api_key'],
+                  config['zone'], config['record'])
 
 
 if __name__ == '__main__':
