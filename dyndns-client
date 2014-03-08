@@ -141,6 +141,9 @@ def update_dyndns(username, api_key, zone, record):
 
 
 def gather_config():
+    """Collect configuration from environment variables or configuration file.
+
+    """
     return {
         "api_key" : os.environ.get('POINT_API_KEY'),
         "username" : os.environ.get('POINT_USERNAME'),
