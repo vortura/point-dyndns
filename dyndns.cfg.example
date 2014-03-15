@@ -1,0 +1,18 @@
+# Point DDNS client configuration file
+
+[dyndns]
+# point_username - User name or email address used to access the Point API
+point_username: exampleuser
+
+# point_api_key - Point API auth token, as taken from your profile page on the
+#                 Point web site.
+point_api_key: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# zone - Zone in which the dynamic record will be created/updated.
+zone: example.com
+
+# record - The dynamic record to create/update. The record should be the fully
+#          qualified name, including the zone name. e.g. To update
+#          home.example.com in the example.com zone, the record parameter should
+#          be home.example.com, not just home
+record: home.example.com

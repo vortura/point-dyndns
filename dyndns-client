@@ -3,6 +3,8 @@
 It determines the external address of a host and then uses the Point API to
 update a given DNS record with the identified IP address."""
 
+import ConfigParser
+import argparse
 import os
 import pointhq
 import requests
@@ -140,16 +142,47 @@ def update_dyndns(username, api_key, zone, record):
         die("Found more than one A record for %s" % dynamic_domain)
 
 
-def gather_config():
-    """Collect configuration from environment variables or configuration file.
+def gather_config(config_file):
+    """Collect configuration from configuration file.
+
+    Returns a dictionary of configuration parameters.
+
+    Arguments:
+    config_file  -- Name of the config file to load.
 
     """
-    return {
-        "api_key" : os.environ.get('POINT_API_KEY'),
-        "username" : os.environ.get('POINT_USERNAME'),
-        "zone" : os.environ.get('POINT_ZONE'),
-        "record" : os.environ.get('POINT_RECORD'),
-        }
+    if not os.path.isfile(config_file):
+        die("No such config file '%s'" % config_file)
+
+    config = ConfigParser.SafeConfigParser()
+    with open(config_file) as config_fh:
+        config.readfp(config_fh, config_file)
+
+    if not config.has_section('dyndns'):
+        die("Config file %s missing mandatory section 'dyndns'." % config_file)
+
+    required_args = ('point_username', 'point_api_key', 'zone', 'record')
+    for arg in required_args:
+        if not config.has_option('dyndns', arg):
+            die("Config file %s missing required config parameter %s"
+                    % (config_file, arg))
+
+    return dict(config.items('dyndns'))
+
+
+def build_option_parser():
+    """Build an argument parser, handle user-supplied args and return the parser
+    object.
+
+    """
+    p = argparse.ArgumentParser(
+            description='Simple PointDNS dynamic DNS client')
+
+    p.add_argument("-c", "--config",
+                   help="Specify config file location",
+                   default="dyndns.cfg")
+
+    return p
 
 
 def main():
@@ -159,10 +192,13 @@ def main():
 
     """
 
-    config = gather_config()
+    args = build_option_parser().parse_args()
+    config = gather_config(args.config)
 
-    update_dyndns(config['username'], config['api_key'],
-                  config['zone'], config['record'])
+    update_dyndns(config['point_username'],
+                  config['point_api_key'],
+                  config['zone'],
+                  config['record'])
 
 
 if __name__ == '__main__':
