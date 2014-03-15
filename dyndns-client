@@ -179,7 +179,7 @@ def build_option_parser():
             description='Simple PointDNS dynamic DNS client')
 
     p.add_argument("-c", "--config",
-                   help="Specify config file location",
+                   help="Specify config file location (default ./dyndns.cfg)",
                    default="dyndns.cfg")
 
     return p
