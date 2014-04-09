@@ -8,11 +8,9 @@ point_username: exampleuser
 #                 Point web site.
 point_api_key: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
-# zone - Zone in which the dynamic record will be created/updated.
-zone: example.com
-
-# record - The dynamic record to create/update. The record should be the fully
-#          qualified name, including the zone name. e.g. To update
-#          home.example.com in the example.com zone, the record parameter should
-#          be home.example.com, not just home
-record: home.example.com
+# records - A comma separated list of DNS records to be updated or created. Each
+#           record should list the record and zone, separated with a colon. For
+#           example, the sample configuration below will create/update the
+#           entries home.example.com, www.1.example.com, and the wildcard domain
+#           *.example.com.
+records: home:example.com, www.1:example.com, *:example.com
