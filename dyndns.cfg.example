@@ -13,4 +13,4 @@ point_api_key: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 #           example, the sample configuration below will create/update the
 #           entries home.example.com, www.1.example.com, and the wildcard domain
 #           *.example.com.
-records: home:example.com, www.1:example.com, *:example.com
+records: home:example.com, www.1:example.com, *:example.com, :example.com

@@ -119,7 +119,7 @@ def update_dyndns(username, api_key, zone, record):
     if len(point_records) == 0:
 
         # Create the zone record if it doesn't already exist
-        print "Creating new record %s in zone %s." % (record, zone)
+        print "Creating new record %s." % record
         point.zones(zone_id).records.create(name=record, data=public_ip,
                                             record_type='A')
 
@@ -127,11 +127,11 @@ def update_dyndns(username, api_key, zone, record):
 
         # Update the zone record if it already exists and the IP has changed.
         if public_ip == point_records[0]['zone_record']['data']:
-            print "No change"
+            print "No change for %s" % record
         else:
             record_id = point_records[0]['zone_record']['id']
             point.zones(zone_id).records(record_id).update(data=public_ip)
-            print "Updating record"
+            print "Updating record %s" % record
 
     else:
 
@@ -199,9 +199,12 @@ def main():
     record_config = config['records'].split(',')
 
     for zone_record_pair in record_config:
-        print zone_record_pair
         (domain, zone) = zone_record_pair.split(":", 1)
-        record = fully_qualify_domain(".".join((domain, zone)))
+
+        if domain == "":
+            record = fully_qualify_domain(zone)
+        else:
+            record = fully_qualify_domain(".".join((domain, zone)))
 
         update_dyndns(config['point_username'],
                       config['point_api_key'],
