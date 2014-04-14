@@ -104,8 +104,6 @@ def update_dyndns(username, api_key, zone, record):
 
     """
 
-    dynamic_domain = fully_qualify_domain("%s" % record)
-
     # Lookup public ip.
     public_ip = get_public_ip()
 
@@ -116,30 +114,30 @@ def update_dyndns(username, api_key, zone, record):
     zone_id = get_point_zone_id(point, zone)
 
     # Check for zone record(s)
-    point_records = get_point_records(point, zone_id, dynamic_domain)
+    point_records = get_point_records(point, zone_id, record)
 
     if len(point_records) == 0:
 
         # Create the zone record if it doesn't already exist
-        print "Creating new record"
-        point.zones(zone_id).records.create(name=dynamic_domain, data=public_ip,
+        print "Creating new record %s." % record
+        point.zones(zone_id).records.create(name=record, data=public_ip,
                                             record_type='A')
 
     elif len(point_records) == 1:
 
         # Update the zone record if it already exists and the IP has changed.
         if public_ip == point_records[0]['zone_record']['data']:
-            print "No change"
+            print "No change for %s" % record
         else:
             record_id = point_records[0]['zone_record']['id']
             point.zones(zone_id).records(record_id).update(data=public_ip)
-            print "Updating record"
+            print "Updating record %s" % record
 
     else:
 
         # Found more than one zone record. Not sure what to do in this
         # situation, so die to be on the safe side.
-        die("Found more than one A record for %s" % dynamic_domain)
+        die("Found more than one A record for %s" % record)
 
 
 def gather_config(config_file):
@@ -161,7 +159,7 @@ def gather_config(config_file):
     if not config.has_section('dyndns'):
         die("Config file %s missing mandatory section 'dyndns'." % config_file)
 
-    required_args = ('point_username', 'point_api_key', 'zone', 'record')
+    required_args = ('point_username', 'point_api_key', 'records')
     for arg in required_args:
         if not config.has_option('dyndns', arg):
             die("Config file %s missing required config parameter %s"
@@ -195,10 +193,23 @@ def main():
     args = build_option_parser().parse_args()
     config = gather_config(args.config)
 
-    update_dyndns(config['point_username'],
-                  config['point_api_key'],
-                  config['zone'],
-                  config['record'])
+    # Strip whitespace from records config line then split individual records
+    # into a list.
+    config['records'] = ''.join(config['records'].split())
+    record_config = config['records'].split(',')
+
+    for zone_record_pair in record_config:
+        (domain, zone) = zone_record_pair.split(":", 1)
+
+        if domain == "":
+            record = fully_qualify_domain(zone)
+        else:
+            record = fully_qualify_domain(".".join((domain, zone)))
+
+        update_dyndns(config['point_username'],
+                      config['point_api_key'],
+                      zone,
+                      record)
 
 
 if __name__ == '__main__':
